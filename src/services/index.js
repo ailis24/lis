@@ -1,0 +1,588 @@
+const API_URL = "";
+
+const getAuthHeader = () => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+export const authService = {
+  register: async (username, phone, password) => {
+    const res = await fetch(`${API_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, phone, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    return data.user;
+  },
+
+  login: async (phone, password) => {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    return data.user;
+  },
+
+  logout: () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  },
+
+  getCurrentUser: () => {
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
+  },
+};
+
+export const userService = {
+  getCount: async () => {
+    const res = await fetch(`${API_URL}/api/users/count`);
+    if (!res.ok) throw new Error("Count failed");
+    return await res.json();
+  },
+
+  search: async (query) => {
+    const res = await fetch(
+      `${API_URL}/api/users/search?q=${encodeURIComponent(query)}`,
+      {
+        headers: getAuthHeader(),
+      },
+    );
+    if (!res.ok) throw new Error("Search failed");
+    return await res.json();
+  },
+
+  getProfile: async (uid) => {
+    const res = await fetch(`${API_URL}/api/users/${uid}`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Profile not found");
+    return await res.json();
+  },
+
+  updateProfile: async (data) => {
+    const res = await fetch(`${API_URL}/api/users/profile`, {
+      method: "PUT",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Update failed");
+    return await res.json();
+  },
+
+  uploadAvatar: async (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const res = await fetch(`${API_URL}/api/users/avatar`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    return await res.json();
+  },
+};
+
+export const postService = {
+  getFeed: async () => {
+    const res = await fetch(`${API_URL}/api/posts`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load feed");
+    return await res.json();
+  },
+
+  createPost: async (content, image, video, pollData, file) => {
+    const formData = new FormData();
+    if (content) formData.append("content", content);
+    if (image) formData.append("image", image);
+    if (video) formData.append("video", video);
+    if (file) formData.append("file", file);
+    if (pollData) formData.append("pollData", JSON.stringify(pollData));
+
+    const res = await fetch(`${API_URL}/api/posts`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Post creation failed");
+    return await res.json();
+  },
+
+  deletePost: async (postId) => {
+    const res = await fetch(`${API_URL}/api/posts/${postId}`, {
+      method: "DELETE",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Delete failed");
+    return await res.json();
+  },
+
+  votePoll: async (postId, optionIndex) => {
+    const res = await fetch(`${API_URL}/api/posts/${postId}/vote`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ optionIndex }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Vote failed");
+    return data;
+  },
+
+  toggleLike: async (postId) => {
+    const res = await fetch(`${API_URL}/api/posts/${postId}/like`, {
+      method: "POST",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Like failed");
+    return await res.json();
+  },
+
+  addComment: async (postId, text, file) => {
+    const formData = new FormData();
+    if (text) formData.append("text", text);
+    if (file) formData.append("file", file);
+    const res = await fetch(`${API_URL}/api/posts/${postId}/comment`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Comment failed");
+    return await res.json();
+  },
+
+  getComments: async (postId) => {
+    const res = await fetch(`${API_URL}/api/posts/${postId}/comments`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load comments");
+    return await res.json();
+  },
+};
+
+export const messageService = {
+  getConversations: async () => {
+    const res = await fetch(`${API_URL}/api/messages/conversations`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load conversations");
+    return await res.json();
+  },
+
+  deleteConversation: async (id) => {
+    const res = await fetch(`${API_URL}/api/messages/conversations/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Delete failed");
+    return await res.json();
+  },
+
+  createConversation: async (participantId, name) => {
+    const res = await fetch(`${API_URL}/api/messages/conversation`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ participantId, name }),
+    });
+    if (!res.ok) throw new Error("Conversation creation failed");
+    return await res.json();
+  },
+
+  createGroup: async (participantIds, name) => {
+    const res = await fetch(`${API_URL}/api/messages/conversation`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ participantIds, name }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Group creation failed");
+    return data;
+  },
+
+  addParticipant: async (conversationId, uid, name) => {
+    const res = await fetch(
+      `${API_URL}/api/messages/conversation/${conversationId}/participants`,
+      {
+        method: "POST",
+        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, name }),
+      },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Add participant failed");
+    return data;
+  },
+
+  getMessages: async (conversationId) => {
+    const res = await fetch(`${API_URL}/api/messages/${conversationId}`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load messages");
+    return await res.json();
+  },
+
+  sendMessage: async (conversationId, text, file) => {
+    const formData = new FormData();
+    if (text) formData.append("text", text);
+    if (file) formData.append("file", file);
+
+    const res = await fetch(`${API_URL}/api/messages/${conversationId}`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Message sending failed");
+    return await res.json();
+  },
+
+  deleteMessage: async (messageId) => {
+    const res = await fetch(`${API_URL}/api/messages/${messageId}`, {
+      method: "DELETE",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Delete failed");
+    return await res.json();
+  },
+};
+
+export const friendService = {
+  getStatus: async (friendId) => {
+    const res = await fetch(`${API_URL}/api/friends/status/${friendId}`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Status failed");
+    return await res.json();
+  },
+
+  sendRequest: async (friendId) => {
+    const res = await fetch(`${API_URL}/api/friends/request`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ friendId }),
+    });
+    if (!res.ok) throw new Error("Request failed");
+    return await res.json();
+  },
+
+  acceptRequest: async (friendId) => {
+    const res = await fetch(`${API_URL}/api/friends/accept`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ friendId }),
+    });
+    if (!res.ok) throw new Error("Accept failed");
+    return await res.json();
+  },
+
+  getList: async () => {
+    const res = await fetch(`${API_URL}/api/friends`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Friends list failed");
+    return await res.json();
+  },
+
+  declineRequest: async (friendId) => {
+    const res = await fetch(`${API_URL}/api/friends/${friendId}`, {
+      method: "DELETE",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Decline failed");
+    return await res.json();
+  },
+};
+
+export const storyService = {
+  getStories: async () => {
+    const res = await fetch(`${API_URL}/api/stories`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load stories");
+    return await res.json();
+  },
+
+  createStory: async (file) => {
+    const formData = new FormData();
+    formData.append("media", file);
+
+    const res = await fetch(`${API_URL}/api/stories`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Story creation failed");
+    }
+    return await res.json();
+  },
+
+  deleteStory: async (id) => {
+    const res = await fetch(`${API_URL}/api/stories/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Delete failed");
+    return await res.json();
+  },
+
+  viewStory: async (id) => {
+    try {
+      await fetch(`${API_URL}/api/stories/${id}/view`, {
+        method: "POST",
+        headers: getAuthHeader(),
+      });
+    } catch (_) {}
+  },
+};
+
+export const notificationService = {
+  getNotifications: async () => {
+    const res = await fetch(`${API_URL}/api/notifications`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load notifications");
+    return await res.json();
+  },
+
+  markAsRead: async () => {
+    const res = await fetch(`${API_URL}/api/notifications/read`, {
+      method: "PUT",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Mark read failed");
+    return await res.json();
+  },
+};
+
+export const timerService = {
+  getStatus: async () => {
+    const res = await fetch(`${API_URL}/api/feed-timer`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load timer");
+    return await res.json();
+  },
+
+  updateTime: async (sessionTime) => {
+    const res = await fetch(`${API_URL}/api/feed-timer/update`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionTime }),
+    });
+    if (!res.ok) throw new Error("Update failed");
+    return await res.json();
+  },
+
+  lock: async () => {
+    const res = await fetch(`${API_URL}/api/feed-timer/lock`, {
+      method: "POST",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Lock failed");
+    return await res.json();
+  },
+};
+
+export const callService = {
+  initiate: async (calleeId, type = "video") => {
+    const res = await fetch(`${API_URL}/api/calls/initiate`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ calleeId, type }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Call failed");
+    return data;
+  },
+
+  sendOffer: async (callId, offer) => {
+    const res = await fetch(`${API_URL}/api/calls/${callId}/offer`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ offer }),
+    });
+    if (!res.ok) throw new Error("Offer failed");
+    return await res.json();
+  },
+
+  getState: async (callId) => {
+    const res = await fetch(`${API_URL}/api/calls/${callId}/state`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("State failed");
+    return await res.json();
+  },
+
+  getIncoming: async () => {
+    const res = await fetch(`${API_URL}/api/calls/incoming`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) return { call: null };
+    return await res.json();
+  },
+
+  sendAnswer: async (callId, answer) => {
+    const res = await fetch(`${API_URL}/api/calls/${callId}/answer`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ answer }),
+    });
+    if (!res.ok) throw new Error("Answer failed");
+    return await res.json();
+  },
+
+  sendIce: async (callId, candidate, side) => {
+    const res = await fetch(`${API_URL}/api/calls/${callId}/ice`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ candidate, side }),
+    });
+    if (!res.ok) throw new Error("ICE failed");
+    return await res.json();
+  },
+
+  end: async (callId, decline = false) => {
+    const res = await fetch(`${API_URL}/api/calls/${callId}/end`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ decline }),
+    });
+    return await res.json().catch(() => ({}));
+  },
+};
+
+export const challengeService = {
+  getRandom: async () => {
+    const res = await fetch(`${API_URL}/api/challenges/random`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Random challenge failed");
+    return await res.json();
+  },
+
+  create: async (text, emoji = "💪") => {
+    const res = await fetch(`${API_URL}/api/challenges`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ text, emoji }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Create challenge failed");
+    return data;
+  },
+
+  getMine: async () => {
+    const res = await fetch(`${API_URL}/api/challenges/mine`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Get mine failed");
+    return await res.json();
+  },
+
+  delete: async (id) => {
+    const res = await fetch(`${API_URL}/api/challenges/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Delete challenge failed");
+    return await res.json();
+  },
+};
+
+export const adminService = {
+  togglePremium: async (uid) => {
+    const res = await fetch(`${API_URL}/api/admin/premium/${uid}`, {
+      method: "POST",
+      headers: getAuthHeader(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Admin premium failed");
+    return data;
+  },
+
+  transferRights: async (phone) => {
+    const res = await fetch(`${API_URL}/api/admin/transfer`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Transfer failed");
+    return data;
+  },
+
+  getChecks: async () => {
+    const res = await fetch(`${API_URL}/api/admin/checks`, {
+      headers: getAuthHeader(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Get checks failed");
+    return data;
+  },
+
+  updateCheck: async (id, status, adminNote = "") => {
+    const res = await fetch(`${API_URL}/api/admin/checks/${id}`, {
+      method: "PUT",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status, adminNote }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Update check failed");
+    return data;
+  },
+
+  submitCheck: async (userPhone, imageFile) => {
+    const formData = new FormData();
+    formData.append("userPhone", userPhone);
+    formData.append("image", imageFile);
+    const res = await fetch(`${API_URL}/api/checks`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Submit check failed");
+    return data;
+  },
+};
+
+export const profileViewsService = {
+  getViews: async (uid) => {
+    const res = await fetch(`${API_URL}/api/users/${uid}/views`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Failed to load profile views");
+    return await res.json();
+  },
+};
+
+export const premiumService = {
+  getStatus: async () => {
+    const res = await fetch(`${API_URL}/api/premium/status`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error("Premium status failed");
+    return await res.json();
+  },
+
+  activate: async (phone) => {
+    const res = await fetch(`${API_URL}/api/premium/activate`, {
+      method: "POST",
+      headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Activation failed");
+    return data;
+  },
+};
